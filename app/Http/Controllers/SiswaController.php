@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Siswa;
+use App\Models\Kelas;
+use App\Models\Jurusan;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class SiswaController extends Controller
@@ -12,16 +15,26 @@ class SiswaController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Siswa::query();
+        $query = Siswa::with(['jurusan', 'kelas', 'teacher']);
+
+        // Role-based filtering
+        if (auth()->user()->isTeacher()) {
+            $query->where('teacher_id', auth()->id());
+        }
 
         // kalau ada parameter search
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where('nisn', 'like', "%{$search}%")
                 ->orWhere('nama_lengkap', 'like', "%{$search}%")
-                ->orWhere('jurusan', 'like', "%{$search}%")
                 ->orWhere('angkatan', 'like', "%{$search}%")
-                ->orWhere('no_hp', 'like', "%{$search}%");
+                ->orWhere('no_hp', 'like', "%{$search}%")
+                ->orWhereHas('jurusan', function($q) use ($search) {
+                    $q->where('nama_jurusan', 'like', "%{$search}%");
+                })
+                ->orWhereHas('kelas', function($q) use ($search) {
+                    $q->where('nama_kelas', 'like', "%{$search}%");
+                });
         }
 
         // bisa ditambah paginate biar rapi
@@ -35,7 +48,10 @@ class SiswaController extends Controller
      */
     public function create()
     {
-        return view('siswa.create');
+        $jurusans = Jurusan::where('is_active', true)->get();
+        $kelas = Kelas::where('is_active', true)->get();
+        $teachers = User::where('role', 'teacher')->get();
+        return view('siswa.create', compact('jurusans', 'kelas', 'teachers'));
     }
 
     /**
@@ -49,9 +65,11 @@ class SiswaController extends Controller
             'tempat_lahir' => 'nullable|string|max:255',
             'tanggal_lahir' => 'nullable|date',
             'alamat' => 'nullable|string',
-            'jurusan' => 'nullable|string|max:100',
+            'jurusan_id' => 'nullable|exists:jurusans,id',
+            'kelas_id' => 'nullable|exists:kelas,id',
             'angkatan' => 'nullable|string|max:100',
             'no_hp' => 'nullable|string|max:20',
+            'teacher_id' => 'nullable|exists:users,id',
         ]);
 
         Siswa::create([
@@ -60,11 +78,13 @@ class SiswaController extends Controller
             'tempat_lahir' => $request->tempat_lahir,
             'tanggal_lahir' => $request->tanggal_lahir,
             'alamat' => $request->alamat,
-            'jurusan' => $request->jurusan,
+            'jurusan_id' => $request->jurusan_id,
+            'kelas_id' => $request->kelas_id,
             'angkatan' => $request->angkatan,
             'no_hp' => $request->no_hp,
-            'added_by' => auth()->user()->name ?? 'system',
-            'is_active' => $request->is_active ?? '1',
+            'added_by' => auth()->id(),
+            'teacher_id' => $request->teacher_id,
+            'is_active' => $request->is_active ?? true,
         ]);
 
         return redirect()->route('siswa.index')->with('success', 'Data siswa berhasil ditambahkan!');
@@ -75,7 +95,7 @@ class SiswaController extends Controller
      */
     public function show(string $id)
     {
-        $siswa = Siswa::findOrFail($id);
+        $siswa = Siswa::with(['jurusan', 'kelas', 'teacher', 'addedBy', 'nilai', 'absensi'])->findOrFail($id);
 
         return view('siswa.show', compact('siswa'));
     }
@@ -83,8 +103,10 @@ class SiswaController extends Controller
     public function edit(string $id)
     {
         $siswa = Siswa::findOrFail($id);
-
-        return view('siswa.edit', compact('siswa'));
+        $jurusans = Jurusan::where('is_active', true)->get();
+        $kelas = Kelas::where('is_active', true)->get();
+        $teachers = User::where('role', 'teacher')->get();
+        return view('siswa.edit', compact('siswa', 'jurusans', 'kelas', 'teachers'));
     }
 
     /**
@@ -100,9 +122,11 @@ class SiswaController extends Controller
             'tempat_lahir' => 'nullable|string|max:255',
             'tanggal_lahir' => 'nullable|date',
             'alamat' => 'nullable|string',
-            'jurusan' => 'nullable|string|max:100',
+            'jurusan_id' => 'nullable|exists:jurusans,id',
+            'kelas_id' => 'nullable|exists:kelas,id',
             'angkatan' => 'nullable|string|max:100',
             'no_hp' => 'nullable|string|max:20',
+            'teacher_id' => 'nullable|exists:users,id',
         ]);
 
         $siswa->update([
@@ -111,10 +135,12 @@ class SiswaController extends Controller
             'tempat_lahir' => $request->tempat_lahir,
             'tanggal_lahir' => $request->tanggal_lahir,
             'alamat' => $request->alamat,
-            'jurusan' => $request->jurusan,
+            'jurusan_id' => $request->jurusan_id,
+            'kelas_id' => $request->kelas_id,
             'angkatan' => $request->angkatan,
             'no_hp' => $request->no_hp,
-            'is_active' => $request->is_active ?? '1',
+            'teacher_id' => $request->teacher_id,
+            'is_active' => $request->is_active ?? true,
         ]);
 
         return redirect()->route('siswa.index')->with('success', 'Data siswa berhasil diperbarui!');

@@ -12,12 +12,57 @@ class Siswa extends Model
     protected $fillable = [
         "nisn",
         "nama_lengkap",
-        "tanggal_lahir", // perbaiki typo
+        "tempat_lahir",
+        "tanggal_lahir",
         "alamat",
-        "jurusan",
+        "jurusan_id",
+        "kelas_id",
         "angkatan",
         "no_hp",
         "added_by",
+        "teacher_id",
+        "user_id",
         "is_active"
     ];
+
+    protected $casts = [
+        'tanggal_lahir' => 'date',
+        'is_active' => 'boolean',
+    ];
+
+    // Relationships
+    public function jurusan()
+    {
+        return $this->belongsTo(Jurusan::class);
+    }
+
+    public function kelas()
+    {
+        return $this->belongsTo(Kelas::class);
+    }
+
+    public function addedBy()
+    {
+        return $this->belongsTo(User::class, 'added_by');
+    }
+
+    public function teacher()
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function nilai()
+    {
+        return $this->hasMany(Nilai::class);
+    }
+
+    public function absensi()
+    {
+        return $this->hasMany(Absensi::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

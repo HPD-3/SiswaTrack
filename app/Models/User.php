@@ -21,6 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
     ];
 
     /**
@@ -44,5 +45,45 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Check if user is admin
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Check if user is teacher
+     */
+    public function isTeacher(): bool
+    {
+        return $this->role === 'teacher';
+    }
+
+    /**
+     * Check if user is student
+     */
+    public function isStudent(): bool
+    {
+        return $this->role === 'student';
+    }
+
+    /**
+     * Get the students assigned to this teacher
+     */
+    public function assignedStudents()
+    {
+        return $this->hasMany(Siswa::class, 'teacher_id');
+    }
+
+    /**
+     * Get the student profile for this user (if user is a student)
+     */
+    public function studentProfile()
+    {
+        return $this->hasOne(Siswa::class, 'user_id');
     }
 }
